@@ -1,41 +1,55 @@
+
 <!DOCTYPE html>
 <html lang="de">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SpeedAi - Chat & Sprachassistent</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ChatGPT - SpeedAi</title>
     <style>
-        body { font-family: Arial, sans-serif; background: #121212; color: #fff; margin: 0; padding: 20px; text-align: center; }
-        h1 { color: #00ff88; margin-bottom: 10px; }
-        
-        .chat-container { max-width: 500px; margin: 0 auto; background: #1e1e1e; border-radius: 12px; border: 1px solid #333; padding: 15px; display: flex; flex-direction: column; height: 80vh; }
-        #chat-box { flex: 1; overflow-y: auto; text-align: left; padding: 10px; margin-bottom: 10px; background: #000; border-radius: 8px; border: 1px solid #333; }
-        
-        .msg { margin-bottom: 12px; line-height: 1.4; }
-        .msg.user { color: #87cefa; }
-        .msg.ai { color: #00ff88; }
-        .msg.system { color: #888; font-style: italic; }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+        body { background-color: #212121; color: #ececec; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
 
-        .input-area { display: flex; gap: 8px; }
-        input[type="text"] { flex: 1; padding: 12px; border-radius: 8px; border: 1px solid #444; background: #222; color: #fff; font-size: 16px; }
-        button { padding: 12px 18px; background: #00ff88; border: none; font-weight: bold; cursor: pointer; border-radius: 8px; color: #000; font-size: 15px; }
-        button.mic-btn { background: #333; color: #00ff88; border: 1px solid #00ff88; }
-        button.mic-btn.active { background: #ff4444; color: #fff; border-color: #ff4444; }
+        /* Oberer Bereich / Header */
+        .chat-header { padding: 12px 16px; font-weight: 600; font-size: 16px; color: #b4b4b4; border-bottom: 1px solid #2f2f2f; background-color: #212121; display: flex; justify-content: space-between; align-items: center; }
+        
+        /* Chatverlauf (nimmt den Platz in der Mitte ein und scrollt) */
+        #chat-box { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 16px; padding-bottom: 80px; }
+
+        /* Nachrichten-Design */
+        .message { display: flex; gap: 12px; line-height: 1.5; font-size: 15px; max-width: 100%; }
+        .avatar { width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 13px; flex-shrink: 0; }
+        .message.user .avatar { background-color: #5436da; color: #fff; }
+        .message.ai .avatar { background-color: #10a37f; color: #fff; }
+        .content { word-break: break-word; margin-top: 4px; }
+
+        /* Eingabebereich fixiert am unteren Bildschirmrand wie bei ChatGPT */
+        .input-container { position: fixed; bottom: 0; left: 0; width: 100%; padding: 12px 16px; background-color: #212121; border-top: 1px solid #2f2f2f; }
+        .input-box { background-color: #2f2f2f; border-radius: 24px; padding: 8px 12px; display: flex; align-items: center; border: 1px solid #424242; max-width: 800px; margin: 0 auto; }
+        .input-box input { flex: 1; background: transparent; border: none; outline: none; color: #fff; font-size: 16px; padding: 4px 8px; }
+        .input-box button { background: #10a37f; border: none; color: #fff; border-radius: 50%; width: 36px; height: 36px; cursor: pointer; display: flex; align-items: center; justify-content: center; margin-left: 6px; flex-shrink: 0; }
+        .mic-btn { background: #424242 !important; }
+        .mic-btn.active { background: #e53935 !important; }
     </style>
 </head>
 <body>
 
-    <h1>SpeedAi</h1>
+    <div class="chat-header">
+        <span>ChatGPT <span style="font-size:11px; color:#10a37f;">(SpeedAi)</span></span>
+        <span onclick="location.reload()" style="font-size: 14px; cursor: pointer; color: #888;">🔄 Neu</span>
+    </div>
 
-    <div class="chat-container">
-        <div id="chat-box">
-            <div class="msg ai"><b>SpeedAi:</b> Hallo! Du kannst mir schreiben oder auf das Mikrofon tippen, um mit mir zu sprechen. Wie kann ich dir helfen?</div>
+    <div id="chat-box">
+        <div class="message ai">
+            <div class="avatar">GPT</div>
+            <div class="content">Hallo! Ich bin bereit. Schreibe mir etwas oder tippe auf das Mikrofon.</div>
         </div>
+    </div>
 
-        <div class="input-area">
-            <input type="text" id="user-input" placeholder="Nachricht schreiben..." onkeydown="if(event.key==='Enter') sendText()">
-            <button onclick="sendText()">Senden</button>
+    <div class="input-container">
+        <div class="input-box">
+            <input type="text" id="user-input" placeholder="Nachricht an ChatGPT..." onkeydown="if(event.key==='Enter') sendText()">
             <button id="mic-btn" class="mic-btn" onclick="toggleVoice()">🎙️</button>
+            <button onclick="sendText()">➔</button>
         </div>
     </div>
 
@@ -43,26 +57,18 @@
         let recognition;
         let isVoiceActive = false;
 
-        // KI Sprachausgabe (Spricht die Antworten laut vor)
         function sprich(text) {
             if ('speechSynthesis' in window) {
                 window.speechSynthesis.cancel();
                 const msg = new SpeechSynthesisUtterance(text);
                 msg.lang = 'de-DE';
-                msg.rate = 1.0;
-
-                // Wenn der Sprachmodus aktiv ist, nach dem Sprechen wieder zuhören
                 msg.onend = function() {
-                    if (isVoiceActive) {
-                        starteZuhören();
-                    }
+                    if (isVoiceActive) starteZuhören();
                 };
-
                 window.speechSynthesis.speak(msg);
             }
         }
 
-        // Text senden
         function sendText() {
             const input = document.getElementById('user-input');
             const text = input.value.trim();
@@ -74,37 +80,26 @@
             verarbeiteAnfrage(text);
         }
 
-        // Sprachmodus umschalten (An / Aus)
         function toggleVoice() {
             const btn = document.getElementById('mic-btn');
             isVoiceActive = !isVoiceActive;
 
             if (isVoiceActive) {
                 btn.classList.add('active');
-                btn.innerText = "🛑 Stopp";
-                addMsg('System', 'Sprachmodus aktiviert. Spreche einfach!', 'system');
                 starteZuhören();
             } else {
                 btn.classList.remove('active');
-                btn.innerText = "🎙️";
                 if (recognition) recognition.stop();
                 window.speechSynthesis.cancel();
-                addMsg('System', 'Sprachmodus deaktiviert.', 'system');
             }
         }
 
-        // Spracherkennung aktivieren
         function starteZuhören() {
             const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-            if (!SpeechRecognition) {
-                alert("Dein Browser unterstützt leider keine Spracherkennung.");
-                return;
-            }
+            if (!SpeechRecognition) return;
 
             recognition = new SpeechRecognition();
             recognition.lang = 'de-DE';
-            recognition.interimResults = false;
-
             recognition.start();
 
             recognition.onresult = function(event) {
@@ -112,40 +107,38 @@
                 addMsg('Du', text, 'user');
                 verarbeiteAnfrage(text);
             };
-
-            recognition.onerror = function() {
-                if (isVoiceActive) {
-                    setTimeout(() => starteZuhören(), 1000);
-                }
-            };
         }
 
-        // Antwort-Logik der KI
         function verarbeiteAnfrage(eingabe) {
             const text = eingabe.toLowerCase();
             let antwort = "";
 
             if (text.includes("hallo") || text.includes("hi")) {
-                antwort = "Hallo! Schön, von dir zu hören. Worüber möchtest du sprechen?";
+                antwort = "Hallo! Wie kann ich dir heute weiterhelfen?";
             } else if (text.includes("wer bist du")) {
-                antwort = "Ich bin SpeedAi, deine persönliche künstliche Intelligenz!";
-            } else if (text.includes("wie gehts") || text.includes("wie geht es")) {
-                antwort = "Mir geht es blendend! Wie geht es dir heute?";
-            } else if (text.includes("was kannst du")) {
-                antwort = "Du kannst mit mir schreiben oder per Sprache mit mir sprechen!";
+                antwort = "Ich bin dein persönlicher Assistent im ChatGPT-Design.";
+            } else if (text.includes("wie gehts")) {
+                antwort = "Mir geht's hervorragend! Wie läuft dein Tag?";
             } else {
-                antwort = "Das ist ein interessanter Gedanke. Erzähl mir mehr darüber!";
+                antwort = "Das ist ein spannender Punkt! Erzähl mir gerne mehr dazu.";
             }
 
-            addMsg('SpeedAi', antwort, 'ai');
-            
-            // Antworten vorlesen (nur wenn Sprachmodus aktiv ist oder per Text geantwortet wird)
-            sprich(antwort);
+            setTimeout(() => {
+                addMsg('GPT', antwort, 'ai');
+                if (isVoiceActive) sprich(antwort);
+            }, 400);
         }
 
         function addMsg(sender, text, type) {
             const box = document.getElementById('chat-box');
-            box.innerHTML += `<div class="msg ${type}"><b>${sender}:</b> ${text}</div>`;
+            const avatarText = type === 'user' ? 'U' : 'GPT';
+            
+            box.innerHTML += `
+                <div class="message ${type}">
+                    <div class="avatar">${avatarText}</div>
+                    <div class="content">${text}</div>
+                </div>
+            `;
             box.scrollTop = box.scrollHeight;
         }
     </script>
