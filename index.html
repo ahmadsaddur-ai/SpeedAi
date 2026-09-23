@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SpeedAi - Live Sprachassistent</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #111; color: #fff; padding: 20px; text-align: center; }
+        h1 { color: #00ff88; }
+        .box { border: 1px solid #333; padding: 15px; margin-bottom: 20px; border-radius: 8px; background: #222; }
+        #chat-box { height: 180px; overflow-y: auto; border: 1px solid #444; padding: 10px; margin-bottom: 10px; background: #000; text-align: left; }
+        button { padding: 12px 20px; background: #00ff88; border: none; font-weight: bold; cursor: pointer; border-radius: 6px; margin: 5px; }
+        video { width: 100%; max-width: 400px; background: #000; border-radius: 8px; }
+    </style>
+</head>
+<body>
+
+    <h1>SpeedAi</h1>
+
+    <div class="box">
+        <h2>Live-Kamera</h2>
+        <video id="video" autoplay playsinline></video><br><br>
+        <button onclick="startCamera()">Kamera starten</button>
+    </div>
+
+    <div class="box">
+        <h2>Sprachsteuerung</h2>
+        <div id="chat-box">
+            <div><b>Ki:</b> Starte die Kamera und tippe auf "Sprechen", um mit mir zu reden.</div>
+        </div>
+        <button onclick="zuhören()">🎙️ Sprechen</button>
+    </div>
+
+    <script>
+        // KI spricht laut
+        function sprich(text) {
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+                const msg = new SpeechSynthesisUtterance(text);
+                msg.lang = 'de-DE';
+                window.speechSynthesis.speak(msg);
+            }
+        }
+
+        // Live-Kamera starten
+        async function startCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                document.getElementById('video').srcObject = stream;
+                
+                const txt = "Kamera läuft! Du kannst jetzt mit mir sprechen.";
+                addChat("Ki", txt);
+                sprich(txt);
+            } catch(e) {
+                alert("Kamera-Zugriff fehlgeschlagen!");
+            }
+        }
+
+        // Spracherkennung (Deine Stimme aufnehmen)
+        function zuhören() {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SpeechRecognition) {
+                alert("Sprachsteuerung wird von diesem Browser leider nicht unterstützt.");
+                return;
+            }
+
+            const recognition = new SpeechRecognition();
+            recognition.lang = 'de-DE';
+            recognition.start();
+
+            addChat("System", "Ich höre zu...");
+
+            recognition.onresult = function(event) {
+                const gesprochenerText = event.results[0][0].transcript;
+                addChat("Du", gesprochenerText);
+
+                // KI antwortet und spricht die Antwort laut aus
+                setTimeout(() => {
+                    const kiAntwort = "Ich habe dich gehört. Du hast gesagt: " + gesprochenerText;
+                    addChat("Ki", kiAntwort);
+                    sprich(kiAntwort);
+                }, 500);
+            };
+
+            recognition.onerror = function() {
+                addChat("System", "Ich konnte dich leider nicht verstehen.");
+            };
+        }
+
+        function addChat(absender, text) {
+            const box = document.getElementById('chat-box');
+            box.innerHTML += `<div><b>${absender}:</b> ${text}</div>`;
+            box.scrollTop = box.scrollHeight;
+        }
+    </script>
+
+</body>
+</html>
