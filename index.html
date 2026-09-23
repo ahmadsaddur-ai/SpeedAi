@@ -3,93 +3,149 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SpeedAi - Live Sprachassistent</title>
+    <title>SpeedAi - Chat & Sprachassistent</title>
     <style>
-        body { font-family: Arial, sans-serif; background: #111; color: #fff; padding: 20px; text-align: center; }
-        h1 { color: #00ff88; }
-        .box { border: 1px solid #333; padding: 15px; margin-bottom: 20px; border-radius: 8px; background: #222; }
-        #chat-box { height: 180px; overflow-y: auto; border: 1px solid #444; padding: 10px; margin-bottom: 10px; background: #000; text-align: left; }
-        button { padding: 12px 20px; background: #00ff88; border: none; font-weight: bold; cursor: pointer; border-radius: 6px; margin: 5px; }
-        video { width: 100%; max-width: 400px; background: #000; border-radius: 8px; }
+        body { font-family: Arial, sans-serif; background: #121212; color: #fff; margin: 0; padding: 20px; text-align: center; }
+        h1 { color: #00ff88; margin-bottom: 10px; }
+        
+        .chat-container { max-width: 500px; margin: 0 auto; background: #1e1e1e; border-radius: 12px; border: 1px solid #333; padding: 15px; display: flex; flex-direction: column; height: 80vh; }
+        #chat-box { flex: 1; overflow-y: auto; text-align: left; padding: 10px; margin-bottom: 10px; background: #000; border-radius: 8px; border: 1px solid #333; }
+        
+        .msg { margin-bottom: 12px; line-height: 1.4; }
+        .msg.user { color: #87cefa; }
+        .msg.ai { color: #00ff88; }
+        .msg.system { color: #888; font-style: italic; }
+
+        .input-area { display: flex; gap: 8px; }
+        input[type="text"] { flex: 1; padding: 12px; border-radius: 8px; border: 1px solid #444; background: #222; color: #fff; font-size: 16px; }
+        button { padding: 12px 18px; background: #00ff88; border: none; font-weight: bold; cursor: pointer; border-radius: 8px; color: #000; font-size: 15px; }
+        button.mic-btn { background: #333; color: #00ff88; border: 1px solid #00ff88; }
+        button.mic-btn.active { background: #ff4444; color: #fff; border-color: #ff4444; }
     </style>
 </head>
 <body>
 
     <h1>SpeedAi</h1>
 
-    <div class="box">
-        <h2>Live-Kamera</h2>
-        <video id="video" autoplay playsinline></video><br><br>
-        <button onclick="startCamera()">Kamera starten</button>
-    </div>
-
-    <div class="box">
-        <h2>Sprachsteuerung</h2>
+    <div class="chat-container">
         <div id="chat-box">
-            <div><b>Ki:</b> Starte die Kamera und tippe auf "Sprechen", um mit mir zu reden.</div>
+            <div class="msg ai"><b>SpeedAi:</b> Hallo! Du kannst mir schreiben oder auf das Mikrofon tippen, um mit mir zu sprechen. Wie kann ich dir helfen?</div>
         </div>
-        <button onclick="zuhören()">🎙️ Sprechen</button>
+
+        <div class="input-area">
+            <input type="text" id="user-input" placeholder="Nachricht schreiben..." onkeydown="if(event.key==='Enter') sendText()">
+            <button onclick="sendText()">Senden</button>
+            <button id="mic-btn" class="mic-btn" onclick="toggleVoice()">🎙️</button>
+        </div>
     </div>
 
     <script>
-        // KI spricht laut
+        let recognition;
+        let isVoiceActive = false;
+
+        // KI Sprachausgabe (Spricht die Antworten laut vor)
         function sprich(text) {
             if ('speechSynthesis' in window) {
                 window.speechSynthesis.cancel();
                 const msg = new SpeechSynthesisUtterance(text);
                 msg.lang = 'de-DE';
+                msg.rate = 1.0;
+
+                // Wenn der Sprachmodus aktiv ist, nach dem Sprechen wieder zuhören
+                msg.onend = function() {
+                    if (isVoiceActive) {
+                        starteZuhören();
+                    }
+                };
+
                 window.speechSynthesis.speak(msg);
             }
         }
 
-        // Live-Kamera starten
-        async function startCamera() {
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-                document.getElementById('video').srcObject = stream;
-                
-                const txt = "Kamera läuft! Du kannst jetzt mit mir sprechen.";
-                addChat("Ki", txt);
-                sprich(txt);
-            } catch(e) {
-                alert("Kamera-Zugriff fehlgeschlagen!");
+        // Text senden
+        function sendText() {
+            const input = document.getElementById('user-input');
+            const text = input.value.trim();
+            if (!text) return;
+
+            addMsg('Du', text, 'user');
+            input.value = '';
+
+            verarbeiteAnfrage(text);
+        }
+
+        // Sprachmodus umschalten (An / Aus)
+        function toggleVoice() {
+            const btn = document.getElementById('mic-btn');
+            isVoiceActive = !isVoiceActive;
+
+            if (isVoiceActive) {
+                btn.classList.add('active');
+                btn.innerText = "🛑 Stopp";
+                addMsg('System', 'Sprachmodus aktiviert. Spreche einfach!', 'system');
+                starteZuhören();
+            } else {
+                btn.classList.remove('active');
+                btn.innerText = "🎙️";
+                if (recognition) recognition.stop();
+                window.speechSynthesis.cancel();
+                addMsg('System', 'Sprachmodus deaktiviert.', 'system');
             }
         }
 
-        // Spracherkennung (Deine Stimme aufnehmen)
-        function zuhören() {
+        // Spracherkennung aktivieren
+        function starteZuhören() {
             const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
             if (!SpeechRecognition) {
-                alert("Sprachsteuerung wird von diesem Browser leider nicht unterstützt.");
+                alert("Dein Browser unterstützt leider keine Spracherkennung.");
                 return;
             }
 
-            const recognition = new SpeechRecognition();
+            recognition = new SpeechRecognition();
             recognition.lang = 'de-DE';
+            recognition.interimResults = false;
+
             recognition.start();
 
-            addChat("System", "Ich höre zu...");
-
             recognition.onresult = function(event) {
-                const gesprochenerText = event.results[0][0].transcript;
-                addChat("Du", gesprochenerText);
-
-                // KI antwortet und spricht die Antwort laut aus
-                setTimeout(() => {
-                    const kiAntwort = "Ich habe dich gehört. Du hast gesagt: " + gesprochenerText;
-                    addChat("Ki", kiAntwort);
-                    sprich(kiAntwort);
-                }, 500);
+                const text = event.results[0][0].transcript;
+                addMsg('Du', text, 'user');
+                verarbeiteAnfrage(text);
             };
 
             recognition.onerror = function() {
-                addChat("System", "Ich konnte dich leider nicht verstehen.");
+                if (isVoiceActive) {
+                    setTimeout(() => starteZuhören(), 1000);
+                }
             };
         }
 
-        function addChat(absender, text) {
+        // Antwort-Logik der KI
+        function verarbeiteAnfrage(eingabe) {
+            const text = eingabe.toLowerCase();
+            let antwort = "";
+
+            if (text.includes("hallo") || text.includes("hi")) {
+                antwort = "Hallo! Schön, von dir zu hören. Worüber möchtest du sprechen?";
+            } else if (text.includes("wer bist du")) {
+                antwort = "Ich bin SpeedAi, deine persönliche künstliche Intelligenz!";
+            } else if (text.includes("wie gehts") || text.includes("wie geht es")) {
+                antwort = "Mir geht es blendend! Wie geht es dir heute?";
+            } else if (text.includes("was kannst du")) {
+                antwort = "Du kannst mit mir schreiben oder per Sprache mit mir sprechen!";
+            } else {
+                antwort = "Das ist ein interessanter Gedanke. Erzähl mir mehr darüber!";
+            }
+
+            addMsg('SpeedAi', antwort, 'ai');
+            
+            // Antworten vorlesen (nur wenn Sprachmodus aktiv ist oder per Text geantwortet wird)
+            sprich(antwort);
+        }
+
+        function addMsg(sender, text, type) {
             const box = document.getElementById('chat-box');
-            box.innerHTML += `<div><b>${absender}:</b> ${text}</div>`;
+            box.innerHTML += `<div class="msg ${type}"><b>${sender}:</b> ${text}</div>`;
             box.scrollTop = box.scrollHeight;
         }
     </script>
